@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tempo - AI-Enhanced Time Management</title>
+    
+    <!-- Use CDNs directly to avoid build issues -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Preload fonts to prevent layout shifts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>⏱️</text></svg>" type="image/svg+xml">
+    
+    <!-- Custom styles (inline to avoid server issues) -->
+    <style>
+        :root {
+            --primary: #5046e4;
+            --primary-lighter: #6767EC;
+            --secondary: #00c6b9;
+            --accent: #ff7d54;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        .tempo-container {
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        .skip-to-content {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+            z-index: 999;
+            background: white;
+            padding: 0.5rem 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .skip-to-content:focus {
+            left: 0.5rem;
+            top: 0.5rem;
+        }
+        
+        .category-btn.work {
+            background-color: #5046e4;
+        }
+        
+        .category-btn.personal {
+            background-color: #ff7d54;
+        }
+        
+        .category-btn.meeting {
+            background-color: #00c6b9;
+        }
+        
+        .timeline-circle {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            aspect-ratio: 1/1;
+        }
+        
+        .center-info {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            width: 140px;
+        }
+
+        .clock-face {
+            fill: none;
+            stroke: #e5e7eb;
+            stroke-width: 1;
+        }
+
+        .hour-mark {
+            stroke: #9ca3af;
+            stroke-width: 2;
+        }
+
+        .hour-text {
+            font-size: 12px;
+            fill: #6b7280;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+        
+        .energy-ring {
+            fill: none;
+            stroke: #e5e7eb;
+            stroke-width: 2;
+            stroke-dasharray: 5, 5;
+        }
+
+        .time-arc {
+            cursor: pointer;
+            transition: opacity 0.2s, filter 0.2s;
+        }
+
+        .time-arc:hover {
+            opacity: 0.9;
+            filter: drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.1));
+        }
+
+        .time-arc.dragging {
+            opacity: 0.7;
+        }
+        
+        /* Animations */
+        .fadeIn {
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+        
+        .slideIn {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: slideIn 0.5s ease-out forwards;
+        }
+        
+        .scaleIn {
+            opacity: 0;
+            transform: scale(0.95);
+            animation: scaleIn 0.6s ease-out forwards;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes scaleIn {
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        .loader {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 3px solid #e5e7eb;
+            border-top-color: #5046e4;
+            animation: spin 1s infinite linear;
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        /* Task styling */
+        .task-block {
+            border-left: 4px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .task-block:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .task-block:focus {
+            outline: 2px solid var(--primary-lighter);
+            outline-offset: 2px;
+        }
+        
+        .task-block.work {
+            border-left-color: var(--primary);
+        }
+        
+        .task-block.meeting {
+            border-left-color: var(--secondary);
+        }
+        
+        .task-block.personal {
+            border-left-color: var(--accent);
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: fixed;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 12px;
+            z-index: 1000;
+            min-width: 150px;
+            text-align: center;
+            transform: translateX(-50%) translateY(-100%);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s;
+        }
+        
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid white;
+        }
+
+        .tooltip.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Tab styling */
+        .tab {
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .tab::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: transparent;
+            transition: background-color 0.2s ease;
+        }
+        
+        .tab.active::after {
+            background-color: #6366F1;
+        }
+        
+        .tab:focus-visible {
+            box-shadow: 0 0 0 2px var(--primary-lighter);
+            border-radius: 0.25rem;
+        }
+
+        .tab-content {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+            opacity: 1;
+        }
+
+        /* Toggle Switches */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-switch input:focus-visible + .toggle-slider {
+            box-shadow: 0 0 0 2px var(--primary-lighter);
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #e2e8f0;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: var(--primary);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            pointer-events: none;
+        }
+        
+        .toast {
+            pointer-events: auto;
+            max-width: 350px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+        }
+
+        .toast.show {
+            transform: translateY(0) !important;
+            opacity: 1 !important;
+        }
+        
+        .toast-container .toast:last-child {
+            margin-bottom: 0;
+        }
+        
+        /* Calendar day hover effects */
+        .calendar-day {
+            transition: all 0.2s ease;
+        }
+        
+        .calendar-day:hover:not(.selected) {
+            background-color: #EEF2FF;
+            transform: scale(1.1);
+        }
+        
+        /* Category button styles */
+        .category-btn {
+            opacity: 0.9;
+            transition: all 0.2s ease;
+        }
+
+        .category-btn:hover {
+            opacity: 1;
+            transform: translateY(-2px);
+        }
+
+        .category-btn.active {
+            box-shadow: 0 0 0 2px white, 0 0 0 4px currentColor;
+        }
+        
+        /* Task item hover and focus styles */
+        .task-item {
+            transition: all 0.2s ease;
+        }
+        
+        .task-item:hover {
+            transform: translateX(4px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Timeline enhancements */
+        .time-arc {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .time-arc:hover {
+            filter: brightness(1.2);
+        }
+        
+        .time-arc.faded {
+            opacity: 0.3;
+        }
+        
+        .time-arc.highlighted {
+            filter: brightness(1.2);
+            stroke-width: 3px;
+        }
+        
+        /* Current focus container */
+        .current-focus-container {
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+            max-width: 200px;
+        }
+        
+        /* Quick-add task button pulse animation */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+        }
+        
+        #quick-add-task {
+            animation: pulse 2s infinite;
+        }
+    </style>
+    
+    <!-- Load Chart.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js" defer></script>
+    
+    <!-- Load JS modules -->
+    <script type="module" src="./src/js/main.js"></script>
+</head>
+<body class="min-h-screen">
+    <!-- Skip to content link for keyboard users -->
+    <a href="#calendar" class="skip-to-content">Skip to content</a>
+    
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm" aria-label="Main navigation">
+        <div class="tempo-container px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <div class="text-3xl font-bold text-primary flex items-center">
+                            <i class="fas fa-clock mr-2 text-primary-600" style="color: var(--primary);" aria-hidden="true"></i>
+                            <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-teal-500">Tempo</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <div class="hidden md:ml-6 md:flex md:items-center md:space-x-4" role="tablist" aria-label="Application sections">
+                        <button class="tab active px-3 py-2 text-sm font-medium text-gray-900 hover:text-gray-900" id="tab-calendar" data-tab="calendar" role="tab" aria-selected="true" aria-controls="calendar" tabindex="0">
+                            <i class="far fa-calendar-alt mr-2" aria-hidden="true"></i>Calendar
+                        </button>
+                        <button class="tab px-3 py-2 text-sm font-medium text-gray-900 hover:text-gray-900" id="tab-reports" data-tab="reports" role="tab" aria-selected="false" aria-controls="reports" tabindex="0">
+                            <i class="far fa-chart-bar mr-2" aria-hidden="true"></i>Reports
+                        </button>
+                        <button class="tab px-3 py-2 text-sm font-medium text-gray-900 hover:text-gray-900" id="tab-settings" data-tab="settings" role="tab" aria-selected="false" aria-controls="settings" tabindex="0">
+                            <i class="fas fa-cog mr-2" aria-hidden="true"></i>Settings
+                        </button>
+                    </div>
+                    <div class="ml-3">
+                        <button class="inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-900 transition duration-150 ease-in-out">
+                            <span class="sr-only">Open user menu</span>
+                            <img class="h-8 w-8 rounded-full" src="https://ui-avatars.com/api/?name=User&background=6366F1&color=fff" alt="User profile" />
+                            </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="tempo-container px-4 sm:px-6 lg:px-8 py-6">
+        <!-- Calendar Tab -->
+        <div id="calendar" class="tab-content active">
+            <div class="flex flex-col lg:flex-row">
+                <!-- Left Sidebar -->
+                <div class="w-full lg:w-80 flex-shrink-0 mb-6 lg:mb-0 lg:mr-6">
+                    <div class="bg-white rounded-xl shadow-sm p-4 mb-6 slideIn">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-semibold">Today</h2>
+                            <div class="flex space-x-2">
+                                <button class="p-1 rounded text-gray-500 hover:text-gray-700 hover:bg-gray-100" aria-label="Previous day">
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <span class="text-sm font-medium date-display">May 15, 2023</span>
+                                <button class="p-1 rounded text-gray-500 hover:text-gray-700 hover:bg-gray-100" aria-label="Next day">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="calendar-grid">
+                        <div class="grid grid-cols-7 gap-1 mb-2 text-center">
+                            <span class="text-xs text-gray-500">S</span>
+                            <span class="text-xs text-gray-500">M</span>
+                            <span class="text-xs text-gray-500">T</span>
+                            <span class="text-xs text-gray-500">W</span>
+                            <span class="text-xs text-gray-500">T</span>
+                            <span class="text-xs text-gray-500">F</span>
+                            <span class="text-xs text-gray-500">S</span>
+                        </div>
+                        <div class="grid grid-cols-7 gap-1 text-center">
+                                <!-- Calendar days will be dynamically inserted here -->
+                        </div>
+                    </div>
+                        <div class="text-center mt-3">
+                            <button class="quick-nav-today text-xs bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-3 py-1 rounded transition">
+                                <i class="fas fa-calendar-day mr-1"></i>Today
+                            </button>
+                                    </div>
+                                </div>
+
+                    <div class="bg-white rounded-xl shadow-sm p-4 slideIn" style="animation-delay: 0.1s;">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-semibold">Upcoming Tasks</h2>
+                            <button id="quick-add-task" class="p-1 rounded bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition text-sm px-2">
+                                <i class="fas fa-plus mr-1"></i>Quick Add
+                            </button>
+                            </div>
+                        <div class="upcoming-tasks-list space-y-3">
+                            <!-- Tasks will be dynamically inserted here -->
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm p-4 slideIn" style="animation-delay: 0.2s;">
+                        <h2 class="text-lg font-semibold mb-4">
+                            <i class="fas fa-robot text-indigo-500 mr-2" aria-hidden="true"></i>AI Suggestions
+                        </h2>
+                        <div class="ai-suggestions-container space-y-3">
+                            <!-- Dynamic AI suggestions will be rendered here -->
+                            <div class="loading-suggestions text-center py-4">
+                                <div class="loader mx-auto mb-2"></div>
+                                <p class="text-sm text-gray-500">Analyzing your schedule...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Calendar Content -->
+                <div class="flex-grow">
+                    <div class="bg-white rounded-xl shadow-sm p-6 fadeIn">
+                        <div class="flex justify-between items-center mb-6">
+                            <div class="schedule-header">
+                                <h1 class="text-2xl font-bold text-gray-900">My Schedule</h1>
+                                <p class="text-sm text-gray-500 date-info">Sunday, April 13</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button class="category-btn work text-white rounded-lg px-3 py-1 text-sm font-medium" aria-label="Filter by work category">
+                                    <i class="fas fa-briefcase mr-1"></i>Work
+                                </button>
+                                <button class="category-btn personal text-white rounded-lg px-3 py-1 text-sm font-medium">
+                                    <i class="fas fa-user mr-1"></i>Personal
+                                </button>
+                                <button class="category-btn meeting text-white rounded-lg px-3 py-1 text-sm font-medium">
+                                    <i class="fas fa-users mr-1"></i>Meeting
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="timeline-circle scaleIn">
+                            <svg width="100%" height="100%" viewBox="0 0 400 400">
+                                <!-- Clock Face -->
+                                <circle cx="200" cy="200" r="180" class="clock-face" />
+                                <circle cx="200" cy="200" r="175" class="clock-face" />
+                                
+                                <!-- Hour Marks -->
+                                <line x1="200" y1="25" x2="200" y2="35" class="hour-mark" transform="rotate(0, 200, 200)" />
+                                <line x1="200" y1="25" x2="200" y2="35" class="hour-mark" transform="rotate(30, 200, 200)" />
+                                <line x1="200" y1="25" x2="200" y2="35" class="hour-mark" transform="rotate(60, 200, 200)" />
+                                <line x1="200" y1="25" x2="200" y2="35" class="hour-mark" transform="rotate(90, 200, 200)" />
+                                <line x1="200" y1="25" x2="200" y2="35" class="hour-mark" transform="rotate(120, 200, 200)" />
+                                <line x1="200" y1="25" x2="200" y2="35" class="hour-mark" transform="rotate(150, 200, 200)" />
+                                <line x1="200" y1="25" x2="200" y2="35" class="hour-mark" transform="rotate(180, 200, 200)" />
+                                <line x1="200" y1="25" x2="200" y2="35" class="hour-mark" transform="rotate(210, 200, 200)" />
+                                <line x1="200" y1="25" x2="200" y2="35" class="hour-mark" transform="rotate(240, 200, 200)" />
+                                <line x1="200" y1="25" x2="200" y2="35" class="hour-mark" transform="rotate(270, 200, 200)" />
+                                <line x1="200" y1="25" x2="200" y2="35" class="hour-mark" transform="rotate(300, 200, 200)" />
+                                <line x1="200" y1="25" x2="200" y2="35" class="hour-mark" transform="rotate(330, 200, 200)" />
+                                
+                                <!-- Hour Text -->
+                                <text x="200" y="15" class="hour-text">12</text>
+                                <text x="290" y="80" class="hour-text">2</text>
+                                <text x="330" y="200" class="hour-text">3</text>
+                                <text x="290" y="320" class="hour-text">5</text>
+                                <text x="200" y="385" class="hour-text">6</text>
+                                <text x="110" y="320" class="hour-text">8</text>
+                                <text x="70" y="200" class="hour-text">9</text>
+                                <text x="110" y="80" class="hour-text">10</text>
+                                
+                                <!-- Energy Wave Ring -->
+                                <path d="M200,50 Q300,150 200,330 Q100,200 200,50" class="energy-ring" />
+                                
+                                <!-- Time blocks will be generated dynamically by timeline.js -->
+                            </svg>
+                            
+                            <!-- Current Focus Info -->
+                            <div class="current-focus-container hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white bg-opacity-90 p-3 rounded-lg border-2 shadow-lg text-center">
+                                <div class="text-lg font-bold current-focus-title">Deep Work</div>
+                                <div class="text-sm text-gray-600 current-focus-time">2:30 PM - 5:00 PM</div>
+                                <div class="mt-2 text-xs"><i class="fas fa-clock mr-1"></i>Focus Time</div>
+                            </div>
+                        </div>
+
+                        <div class="tooltip" id="task-tooltip">
+                            <h3 class="font-semibold text-base"></h3>
+                            <p class="text-sm text-gray-500"></p>
+                            <div class="mt-2 flex space-x-2">
+                                <button class="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded">
+                                    <i class="fas fa-edit mr-1"></i>Edit
+                                </button>
+                                <button class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                                    <i class="fas fa-trash mr-1"></i>Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                        <div class="bg-white rounded-xl shadow-sm p-6 slideIn" style="animation-delay: 0.3s;">
+                            <h2 class="text-lg font-semibold mb-4">Productivity Insights</h2>
+                            <div class="grid grid-cols-1 gap-6">
+                                <div>
+                                    <div class="flex justify-between items-baseline mb-2">
+                                        <h3 class="font-medium">Focused Time Today</h3>
+                                        <span class="text-2xl font-bold text-indigo-600">4.5 hrs</span>
+                                </div>
+                                    <div class="bg-gray-100 h-3 rounded-full overflow-hidden">
+                                        <div class="bg-indigo-600 h-full rounded-full" style="width: 76%"></div>
+                                </div>
+                                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                        <span>0 hrs</span>
+                                        <span>Target: 6 hrs</span>
+                            </div>
+                        </div>
+
+                                <div>
+                                    <div class="flex justify-between items-baseline mb-2">
+                                        <h3 class="font-medium">Energy Level</h3>
+                                        <span class="text-sm font-medium text-green-600">High</span>
+                                        </div>
+                                    <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                        <div class="h-full bg-gradient-to-r from-yellow-400 via-green-500 to-green-500 rounded-full" style="width: 85%"></div>
+                                    </div>
+                                </div>
+                                        </div>
+                                    </div>
+
+                        <div class="bg-white rounded-xl shadow-sm p-6 slideIn" style="animation-delay: 0.4s;">
+                            <h2 class="text-lg font-semibold mb-4">Time Distribution</h2>
+                            <div class="grid grid-cols-2 gap-4 text-center">
+                                <div>
+                                    <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-indigo-100 flex items-center justify-center">
+                                        <i class="fas fa-briefcase text-indigo-600"></i>
+                                </div>
+                                    <div class="font-medium">Work</div>
+                                    <div class="text-xl font-bold text-indigo-600">42%</div>
+                                        </div>
+                                <div>
+                                    <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-teal-100 flex items-center justify-center">
+                                        <i class="fas fa-users text-teal-600"></i>
+                                    </div>
+                                    <div class="font-medium">Meetings</div>
+                                    <div class="text-xl font-bold text-teal-600">25%</div>
+                                </div>
+                                <div>
+                                    <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-purple-100 flex items-center justify-center">
+                                        <i class="fas fa-brain text-purple-600"></i>
+                                        </div>
+                                    <div class="font-medium">Focus</div>
+                                    <div class="text-xl font-bold text-purple-600">15%</div>
+                                    </div>
+                                <div>
+                                    <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-blue-100 flex items-center justify-center">
+                                        <i class="fas fa-coffee text-blue-600"></i>
+                                </div>
+                                    <div class="font-medium">Breaks</div>
+                                    <div class="text-xl font-bold text-blue-600">5%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports Tab -->
+        <div id="reports" class="tab-content">
+            <div class="fadeIn">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-gray-900">Productivity Reports</h1>
+                    <p class="text-sm text-gray-500">Analyze your time usage and productivity patterns</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-white rounded-xl shadow-sm p-4 slideIn">
+                        <h2 class="text-lg font-semibold mb-2">Weekly Summary</h2>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="text-sm font-medium text-gray-500">Productive Hours</span>
+                                <div class="text-2xl font-bold">27.5 hrs</div>
+                                <span class="text-sm text-green-600">
+                                    <i class="fas fa-arrow-up mr-1"></i>12% from last week
+                                </span>
+                            </div>
+                            <div class="w-20 h-20 rounded-full bg-indigo-100 flex items-center justify-center">
+                                <span class="text-xl font-bold text-indigo-700">68%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-4 slideIn" style="animation-delay: 0.1s;">
+                        <h2 class="text-lg font-semibold mb-2">Focus Sessions</h2>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="text-sm font-medium text-gray-500">Total Sessions</span>
+                                <div class="text-2xl font-bold">14</div>
+                                <span class="text-sm text-green-600">
+                                    <i class="fas fa-arrow-up mr-1"></i>3 more than last week
+                                </span>
+                            </div>
+                            <div class="w-20 h-20 rounded-full bg-purple-100 flex items-center justify-center">
+                                <span class="text-xl font-bold text-purple-700">9.2h</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-4 slideIn" style="animation-delay: 0.2s;">
+                        <h2 class="text-lg font-semibold mb-2">Meeting Efficiency</h2>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="text-sm font-medium text-gray-500">Average Duration</span>
+                                <div class="text-2xl font-bold">42 min</div>
+                                <span class="text-sm text-red-600">
+                                    <i class="fas fa-arrow-up mr-1"></i>5 min from goal
+                                </span>
+                            </div>
+                            <div class="w-20 h-20 rounded-full bg-teal-100 flex items-center justify-center">
+                                <span class="text-xl font-bold text-teal-700">85%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6 scaleIn">
+                        <h2 class="text-lg font-semibold mb-4">Weekly Productivity Trend</h2>
+                        <div class="chart-container" id="productivity-chart">
+                            <canvas id="weeklyProductivityChart" width="400" height="300"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 scaleIn" style="animation-delay: 0.1s;">
+                        <h2 class="text-lg font-semibold mb-4">Time Distribution by Category</h2>
+                        <div class="chart-container" id="distribution-chart">
+                            <canvas id="categoryDistributionChart" width="400" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm p-6 mb-6 scaleIn" style="animation-delay: 0.2s;">
+                    <h2 class="text-lg font-semibold mb-4">Energy Level Patterns</h2>
+                    <div class="chart-container" id="energy-chart">
+                        <canvas id="energyLevelChart" width="800" height="300"></canvas>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6 slideIn" style="animation-delay: 0.3s;">
+                        <h2 class="text-lg font-semibold mb-4">Task Completion Rate</h2>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-sm font-medium text-gray-500">This Week</span>
+                            <span class="text-sm text-green-600">
+                                <i class="fas fa-arrow-up mr-1"></i>8% improvement
+                            </span>
+                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Monday</span>
+                                    <span>85%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div class="bg-green-500 h-2.5 rounded-full" style="width: 85%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Tuesday</span>
+                                    <span>92%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div class="bg-green-500 h-2.5 rounded-full" style="width: 92%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Wednesday</span>
+                                    <span>78%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div class="bg-green-500 h-2.5 rounded-full" style="width: 78%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Thursday</span>
+                                    <span>88%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div class="bg-green-500 h-2.5 rounded-full" style="width: 88%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Friday</span>
+                                    <span>95%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div class="bg-green-500 h-2.5 rounded-full" style="width: 95%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 slideIn" style="animation-delay: 0.4s;">
+                        <h2 class="text-lg font-semibold mb-4">AI Productivity Insights</h2>
+                        <div class="space-y-4">
+                            <div class="flex p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+                                <div class="flex-shrink-0 mr-3">
+                                    <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                                        <i class="fas fa-lightbulb text-indigo-600"></i>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h3 class="font-medium text-indigo-900">Optimal Focus Times</h3>
+                                    <p class="text-sm text-indigo-700">Your productivity peaks between 9-11 AM and 2-4 PM. Schedule deep work during these windows.</p>
+                                </div>
+                            </div>
+                            <div class="flex p-3 bg-teal-50 rounded-lg border border-teal-100">
+                                <div class="flex-shrink-0 mr-3">
+                                    <div class="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center">
+                                        <i class="fas fa-users text-teal-600"></i>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h3 class="font-medium text-teal-900">Meeting Analysis</h3>
+                                    <p class="text-sm text-teal-700">Your most productive meetings are under 30 minutes. Consider shortening your average meeting time.</p>
+                                </div>
+                            </div>
+                            <div class="flex p-3 bg-orange-50 rounded-lg border border-orange-100">
+                                <div class="flex-shrink-0 mr-3">
+                                    <div class="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                                        <i class="fas fa-coffee text-orange-600"></i>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h3 class="font-medium text-orange-900">Break Optimization</h3>
+                                    <p class="text-sm text-orange-700">Adding a 15-minute break after 90 minutes of work improved your productivity by 23%.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="settings" class="tab-content">
+            <div class="fadeIn">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-gray-900">Settings & Preferences</h1>
+                    <p class="text-sm text-gray-500">Customize Tempo to match your workflow</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Profile Settings -->
+                    <div class="settings-panel bg-white rounded-xl shadow-sm p-6 col-span-1 slideIn">
+                        <h2 class="text-lg font-semibold mb-4">Profile</h2>
+                        <div class="flex flex-col items-center mb-6">
+                            <div class="relative">
+                                <img src="https://cdn.jsdelivr.net/gh/kentcdodds/react-workshop/static/kent.jpg" alt="Profile" class="w-24 h-24 rounded-full border-4 border-indigo-100" loading="eager">
+                                <button class="absolute bottom-0 right-0 bg-indigo-600 text-white p-1 rounded-full w-8 h-8 flex items-center justify-center">
+                                    <i class="fas fa-camera" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <h3 class="mt-4 text-lg font-semibold">John Doe</h3>
+                            <p class="text-sm text-gray-500">Product Designer</p>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                <input type="email" value="john.doe@example.com" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Time Zone</label>
+                                <select class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option>Pacific Time (UTC-8)</option>
+                                    <option>Mountain Time (UTC-7)</option>
+                                    <option>Central Time (UTC-6)</option>
+                                    <option>Eastern Time (UTC-5)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Working Hours</label>
+                                <div class="flex space-x-2">
+                                    <select class="w-1/2 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                        <option>8:00 AM</option>
+                                        <option>9:00 AM</option>
+                                        <option>10:00 AM</option>
+                                    </select>
+                                    <span class="flex items-center">to</span>
+                                    <select class="w-1/2 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                        <option>5:00 PM</option>
+                                        <option>6:00 PM</option>
+                                        <option>7:00 PM</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- App Settings -->
+                    <div class="col-span-2">
+                        <div class="settings-panel bg-white rounded-xl shadow-sm p-6 mb-6 slideIn" style="animation-delay: 0.1s;">
+                            <h2 class="text-lg font-semibold mb-4">App Preferences</h2>
+                            
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h3 class="font-medium">Dark Mode</h3>
+                                        <p class="text-sm text-gray-500">Switch to dark theme</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h3 class="font-medium">Notifications</h3>
+                                        <p class="text-sm text-gray-500">Receive task reminders and updates</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h3 class="font-medium">Sound Effects</h3>
+                                        <p class="text-sm text-gray-500">Play sounds for task completions</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h3 class="font-medium">AI Suggestions</h3>
+                                        <p class="text-sm text-gray-500">Get AI-powered scheduling recommendations</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                
+                                <div class="pt-3">
+                                    <h3 class="font-medium mb-2">Calendar View</h3>
+                                    <div class="flex space-x-2">
+                                        <button class="px-3 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium">Circular</button>
+                                        <button class="px-3 py-2 bg-gray-200 text-gray-700 rounded-md text-sm font-medium">Timeline</button>
+                                        <button class="px-3 py-2 bg-gray-200 text-gray-700 rounded-md text-sm font-medium">Traditional</button>
+                                    </div>
+                                </div>
+                                
+                                <div class="pt-3">
+                                    <h3 class="font-medium mb-2">Color Theme</h3>
+                                    <div class="flex space-x-3">
+                                        <button class="w-8 h-8 rounded-full bg-indigo-600 ring-2 ring-offset-2 ring-indigo-600"></button>
+                                        <button class="w-8 h-8 rounded-full bg-purple-600"></button>
+                                        <button class="w-8 h-8 rounded-full bg-blue-600"></button>
+                                        <button class="w-8 h-8 rounded-full bg-green-600"></button>
+                                        <button class="w-8 h-8 rounded-full bg-orange-600"></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="settings-panel bg-white rounded-xl shadow-sm p-6 slideIn" style="animation-delay: 0.2s;">
+                            <h2 class="text-lg font-semibold mb-4">Task Categories</h2>
+                            
+                            <div class="space-y-4">
+                                <div class="flex items-center">
+                                    <div class="w-4 h-4 rounded-full bg-indigo-600 mr-3"></div>
+                                    <div class="flex-grow">
+                                        <input type="text" value="Work" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                    </div>
+                                    <button class="ml-2 text-gray-400 hover:text-gray-600">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                
+                                <div class="flex items-center">
+                                    <div class="w-4 h-4 rounded-full bg-orange-500 mr-3"></div>
+                                    <div class="flex-grow">
+                                        <input type="text" value="Personal" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                    </div>
+                                    <button class="ml-2 text-gray-400 hover:text-gray-600">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                
+                                <div class="flex items-center">
+                                    <div class="w-4 h-4 rounded-full bg-teal-500 mr-3"></div>
+                                    <div class="flex-grow">
+                                        <input type="text" value="Meeting" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                    </div>
+                                    <button class="ml-2 text-gray-400 hover:text-gray-600">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                
+                                <div class="flex items-center">
+                                    <div class="w-4 h-4 rounded-full bg-purple-500 mr-3"></div>
+                                    <div class="flex-grow">
+                                        <input type="text" value="Focus" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                    </div>
+                                    <button class="ml-2 text-gray-400 hover:text-gray-600">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                
+                                <button class="mt-3 flex items-center text-indigo-600 font-medium">
+                                    <i class="fas fa-plus mr-2"></i> Add Category
+                                </button>
+                            </div>
+                            
+                            <div class="mt-6 pt-6 border-t border-gray-200">
+                                <h3 class="font-medium mb-3">Integration Settings</h3>
+                                <div class="space-y-3">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <img src="https://cdn.jsdelivr.net/npm/simple-icons@v7/icons/google.svg" class="w-5 h-5 mr-3" alt="Google">
+                                            <span>Google Calendar</span>
+                                        </div>
+                                        <span class="text-green-600 text-sm">Connected</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <img src="https://cdn.jsdelivr.net/npm/simple-icons@v7/icons/slack.svg" class="w-5 h-5 mr-3" alt="Slack">
+                                            <span>Slack</span>
+                                        </div>
+                                        <button class="text-indigo-600 text-sm">Connect</button>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <img src="https://cdn.jsdelivr.net/npm/simple-icons@v7/icons/todoist.svg" class="w-5 h-5 mr-3" alt="Todoist">
+                                            <span>Todoist</span>
+                                        </div>
+                                        <button class="text-indigo-600 text-sm">Connect</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast container for notifications -->
+    <div class="toast-container fixed bottom-4 right-4 z-50">
+        <!-- Toast notifications will be added here dynamically -->
+    </div>
+</body>
+</html>

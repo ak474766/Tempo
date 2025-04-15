@@ -1,0 +1,59 @@
+{
+  "name": "tempo",
+  "version": "1.0.0",
+  "description": "AI-Enhanced Time Management Application with Circular Timeline Visualization",
+  "private": true,
+  "author": "Tempo Team",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite --open",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext .js",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepare": "husky install"
+  },
+  "keywords": [
+    "time-management",
+    "productivity",
+    "circular-timeline",
+    "task-management",
+    "time-tracking",
+    "svg-visualization",
+    "chart.js"
+  ],
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=7.0.0"
+  },
+  "browserslist": [
+    ">0.2%",
+    "not dead",
+    "not op_mini all"
+  ],
+  "dependencies": {
+    "chart.js": "^4.4.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.48.0",
+    "eslint-config-prettier": "^9.0.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^14.0.1",
+    "prettier": "^3.0.3",
+    "vite": "^4.4.9"
+  },
+  "lint-staged": {
+    "*.js": "eslint --fix",
+    "*.{js,css,md,html,json}": "prettier --write"
+  },
+  "homepage": "https://github.com/yourusername/tempo#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/tempo.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/tempo/issues"
+  }
+}
